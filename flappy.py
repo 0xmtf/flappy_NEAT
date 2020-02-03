@@ -4,6 +4,7 @@ import math
 import os
 
 FPS = 60
+MS_UNIT = 1000.0
 WIDTH = 800
 HEIGHT = 800
 WIN_CAPTION = "Flappy's gonna breed"
@@ -29,26 +30,57 @@ birds = {
 
 
 class Bird:
-    DROP_SPEED = 0.18
+    ROTATE = 30
+    DROP_SPEED = 0.3
     CLIMB_SPEED = 0.3
-    CLIMB_DURATION = 333.3
+    CLIMB_DURATION = 300.00
     BIRD_WIDTH = BIRD_HEIGHT = 42
-    
-    def __init__(self, x, y):
+
+    def __init__(self, x, y, climb_rate):
         self.x = x
         self.y = y
         self.height = self.y
+        self.climb_rate = climb_rate
         self._img_up = birds["up"]
         self._img_down = birds["down"]
+        self._rotate_up = False
+        self._rotate_down = False
 
     def jump(self):
-        self.y -= 20
+        self.climb_rate = self.CLIMB_DURATION
 
-    def move(self):
-        pass
+    def update(self, delta=1.2):
+        _frame = Frame()
+        if self.climb_rate > 0:
+            _climb = 1 - self.climb_rate / self.CLIMB_DURATION
+            self.y -= (self.CLIMB_SPEED *
+                       _frame.to_ms(delta) *
+                       (1 - math.cos(_climb * math.pi)))
+            self.climb_rate -= _frame.to_ms(delta)
+            self._rotate_down = False
+            self._rotate_up = True
+        else:
+            self._rotate_down = True
+            self._rotate_up = False
+            self.y += self.DROP_SPEED * _frame.to_ms(delta)
 
     def draw(self, _screen):
-        _screen.blit(self._animated_wings, self._position)
+        if self._rotate_up:
+            self._tilted_move(_screen, 1)
+        elif self._rotate_down:
+            self._tilted_move(_screen, -1)
+        else:
+            self._tilted_move(_screen, 0)
+
+    def _tilted_move(self, _screen, direction=0):
+        if direction > 0:
+            _rotated = pygame.transform.rotate(self._animated_wings, self.ROTATE)
+            _screen.blit(_rotated, self._position)
+        elif direction < 0:
+            _rotated = pygame.transform.rotate(self._animated_wings, -self.ROTATE)
+            _screen.blit(_rotated, self._position)
+        else:
+            _screen.blit(self._animated_wings, self._position)
 
     @property
     def _animated_wings(self):
@@ -66,7 +98,7 @@ class Bird:
 
 
 class Pipe:
-    DISTANCE = 150
+    DISTANCE = 200
 
     def __init__(self, x):
         self.x = x
@@ -105,6 +137,18 @@ class BaseSpiral:
         _screen.blit(self.img, (self.right_x, self.y))
 
 
+class Frame:
+    def __init__(self):
+        self.fps = FPS
+        self.ms = MS_UNIT
+
+    def to_ms(self, frames):
+        return self.ms * frames / self.fps
+
+    def to_frame(self, millis):
+        return self.fps * millis / self.ms
+
+
 def draw_game(_screen, _background, _bird, _pipe, _base):
     _screen.blit(_background, (0, 0))
     _bird.draw(_screen)
@@ -115,7 +159,7 @@ def draw_game(_screen, _background, _bird, _pipe, _base):
 
 
 if __name__ == "__main__":
-    bird = Bird(200, 300)
+    bird = Bird(200, 300, 2)
     pipe = Pipe(600)
     base = BaseSpiral()
 
@@ -133,6 +177,7 @@ if __name__ == "__main__":
                 if event.key == pygame.K_SPACE:
                     bird.jump()
 
+        bird.update()
         draw_game(screen, background, bird, pipe, base)
 
     pygame.quit()
