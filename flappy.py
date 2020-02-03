@@ -1,7 +1,9 @@
 import pygame
 import random
+import math
 import os
 
+FPS = 60
 WIDTH = 800
 HEIGHT = 800
 WIN_CAPTION = "Flappy's gonna breed"
@@ -27,24 +29,44 @@ birds = {
 
 
 class Bird:
+    DROP_SPEED = 0.18
+    CLIMB_SPEED = 0.3
+    CLIMB_DURATION = 333.3
+    BIRD_WIDTH = BIRD_HEIGHT = 42
+    
     def __init__(self, x, y):
         self.x = x
         self.y = y
         self.height = self.y
-        self.img = birds["level"]
+        self._img_up = birds["up"]
+        self._img_down = birds["down"]
 
     def jump(self):
-        pass
+        self.y -= 20
 
     def move(self):
         pass
 
     def draw(self, _screen):
-        _screen.blit(self.img, (self.x, self.y))
+        _screen.blit(self._animated_wings, self._position)
+
+    @property
+    def _animated_wings(self):
+        if pygame.time.get_ticks() % 500 >= 250:
+            return self._img_up
+        else:
+            return self._img_down
+
+    @property
+    def _position(self):
+        return pygame.Rect(self.x,
+                           self.y,
+                           self.BIRD_WIDTH,
+                           self.BIRD_HEIGHT)
 
 
 class Pipe:
-    distance_between = 150
+    DISTANCE = 150
 
     def __init__(self, x):
         self.x = x
@@ -65,7 +87,7 @@ class Pipe:
     def _pick_rand_height(self):
         self.height = random.randrange(50, 400)
         self.top = self.height - self.pipe_top.get_height()
-        self.bottom = self.height + self.distance_between
+        self.bottom = self.height + self.DISTANCE
 
 
 class BaseSpiral:
@@ -83,23 +105,34 @@ class BaseSpiral:
         _screen.blit(self.img, (self.right_x, self.y))
 
 
-if __name__ == "__main__":
-    screen.blit(background, (0, 0))
-
-    bird = Bird(200, 300)
-    bird.draw(screen)
-
-    pipe = Pipe(600)
-    pipe.draw(screen)
-
-    base = BaseSpiral()
-    base.draw(screen)
+def draw_game(_screen, _background, _bird, _pipe, _base):
+    _screen.blit(_background, (0, 0))
+    _bird.draw(_screen)
+    _pipe.draw(_screen)
+    _base.draw(_screen)
 
     pygame.display.flip()
+
+
+if __name__ == "__main__":
+    bird = Bird(200, 300)
+    pipe = Pipe(600)
+    base = BaseSpiral()
+
+    draw_game(screen, background, bird, pipe, base)
+    clock = pygame.time.Clock()
     done = False
     while not done:
+        clock.tick(FPS)
+        base.move()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    bird.jump()
+
+        draw_game(screen, background, bird, pipe, base)
 
     pygame.quit()
