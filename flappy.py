@@ -10,6 +10,9 @@ HEIGHT = 800
 WIN_CAPTION = "Flappy's gonna breed"
 
 
+# DISPLAY_FONT = pygame.font.SysFont("calibri", 60)
+
+
 def load_img(name):
     return pygame.image.load(os.path.join("img", name))
 
@@ -43,6 +46,10 @@ class Bird:
         self.climb_rate = climb_rate
         self._img_up = birds["up"]
         self._img_down = birds["down"]
+        self._img_up_mask = pygame.mask \
+            .from_surface(self._img_up)
+        self._img_down_mask = pygame.mask \
+            .from_surface(self._img_down)
         self._rotate_up = False
         self._rotate_down = False
 
@@ -74,31 +81,39 @@ class Bird:
 
     def _tilted_move(self, _screen, direction=0):
         if direction > 0:
-            _rotated = pygame.transform.rotate(self._animated_wings, self.ROTATE)
-            _screen.blit(_rotated, self._position)
+            _rotated = pygame.transform.rotate(self.image, self.ROTATE)
+            _screen.blit(_rotated, self.rect)
         elif direction < 0:
-            _rotated = pygame.transform.rotate(self._animated_wings, -self.ROTATE)
-            _screen.blit(_rotated, self._position)
+            _rotated = pygame.transform.rotate(self.image, -self.ROTATE)
+            _screen.blit(_rotated, self.rect)
         else:
-            _screen.blit(self._animated_wings, self._position)
+            _screen.blit(self.image, self.rect)
 
     @property
-    def _animated_wings(self):
-        if pygame.time.get_ticks() % 500 >= 250:
-            return self._img_up
-        else:
-            return self._img_down
-
-    @property
-    def _position(self):
+    def rect(self):
         return pygame.Rect(self.x,
                            self.y,
                            self.BIRD_WIDTH,
                            self.BIRD_HEIGHT)
 
+    @property
+    def mask(self):
+        if pygame.time.get_ticks() % 500 >= 250:
+            return self._img_up_mask
+        else:
+            return self._img_down_mask
+
+    @property
+    def image(self):
+        if pygame.time.get_ticks() % 500 >= 250:
+            return self._img_up
+        else:
+            return self._img_down
+
 
 class Pipe:
     DISTANCE = 200
+    ANIMATION = .18
 
     def __init__(self, x):
         self.x = x
@@ -107,34 +122,67 @@ class Pipe:
         self.height = 0
         self.pipe_bottom = pipe_bottom
         self.pipe_top = pipe_top
+        self._frame = Frame()
         self._pick_rand_height()
 
-    def move(self):
-        pass
+    def update(self, delta=1):
+        self.x -= self.ANIMATION * self._frame.to_ms(delta)
 
     def draw(self, _screen):
         _screen.blit(self.pipe_top, (self.x, self.top))
         _screen.blit(self.pipe_bottom, (self.x, self.bottom))
+        self.update()
+
+    def collides_with(self, _bird):
+        top_index = (int(self.x - bird.x),
+                     self.top - math.floor(bird.y))
+        bottom_index = (int(self.x - bird.x),
+                        self.bottom - math.floor(bird.y))
+        top_hit = bird.mask \
+            .overlap(self._get_mask(position="top"), top_index)
+        bottom_hit = bird.mask \
+            .overlap(self._get_mask(position="bottom"), bottom_index)
+
+        if top_hit is not None or bottom_hit is not None:
+            return True
+
+        return False
 
     def _pick_rand_height(self):
         self.height = random.randrange(50, 400)
         self.top = self.height - self.pipe_top.get_height()
         self.bottom = self.height + self.DISTANCE
 
+    def _get_mask(self, position):
+        if position.lower() == "top":
+            return pygame.mask.from_surface(self.pipe_top)
+        elif position.lower() == "bottom":
+            return pygame.mask.from_surface(self.pipe_bottom)
+
 
 class BaseSpiral:
+    IMG_WIDTH = base_spiral.get_width()
+    ANIMATION = .18
+
     def __init__(self):
         self.y = HEIGHT - 100
         self.img = base_spiral
         self.left_x = 0
-        self.right_x = base_spiral.get_width()
+        self.right_x = self.IMG_WIDTH
+        self._frame = Frame()
 
-    def move(self):
-        pass
+    def update(self, delta=1):
+        self.left_x -= self.ANIMATION * self._frame.to_ms(delta)
+        self.right_x -= self.ANIMATION * self._frame.to_ms(delta)
+        if self.left_x + self.IMG_WIDTH < 0:
+            self.left_x = self.right_x + self.IMG_WIDTH
+        if self.right_x + self.IMG_WIDTH < 0:
+            self.right_x = self.left_x + self.IMG_WIDTH
 
     def draw(self, _screen):
         _screen.blit(self.img, (self.left_x, self.y))
         _screen.blit(self.img, (self.right_x, self.y))
+        self.update()
 
 
 class Frame:
@@ -160,7 +208,7 @@ def draw_game(_screen, _background, _bird, _pipe, _base):
 
 if __name__ == "__main__":
     bird = Bird(200, 300, 2)
-    pipe = Pipe(600)
+    pipe = Pipe(850)
     base = BaseSpiral()
 
     draw_game(screen, background, bird, pipe, base)
@@ -168,7 +216,6 @@ if __name__ == "__main__":
     done = False
     while not done:
         clock.tick(FPS)
-        base.move()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
@@ -177,7 +224,10 @@ if __name__ == "__main__":
                 if event.key == pygame.K_SPACE:
                     bird.jump()
 
+        if pipe.collides_with(bird):
+            done = True
         bird.update()
+
         draw_game(screen, background, bird, pipe, base)
 
     pygame.quit()
