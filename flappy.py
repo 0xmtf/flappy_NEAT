@@ -34,8 +34,8 @@ birds = {
 
 class Bird:
     ROTATE = 30
-    DROP_SPEED = 0.3
-    CLIMB_SPEED = 0.3
+    DROP_SPEED = 0.2
+    CLIMB_SPEED = 0.2
     CLIMB_DURATION = 300.00
     BIRD_WIDTH = BIRD_HEIGHT = 42
 
@@ -134,13 +134,13 @@ class Pipe:
         self.update()
 
     def collides_with(self, _bird):
-        top_index = (int(self.x - bird.x),
-                     self.top - math.floor(bird.y))
-        bottom_index = (int(self.x - bird.x),
-                        self.bottom - math.floor(bird.y))
-        top_hit = bird.mask \
+        top_index = (int(self.x - _bird.x),
+                     self.top - math.floor(_bird.y))
+        bottom_index = (int(self.x - _bird.x),
+                        self.bottom - math.floor(_bird.y))
+        top_hit = _bird.mask \
             .overlap(self._get_mask(position="top"), top_index)
-        bottom_hit = bird.mask \
+        bottom_hit = _bird.mask \
             .overlap(self._get_mask(position="bottom"), bottom_index)
 
         if top_hit is not None or bottom_hit is not None:
@@ -184,6 +184,25 @@ class BaseSpiral:
         _screen.blit(self.img, (self.right_x, self.y))
         self.update()
 
+    def collides_with(self, _bird):
+        left_index = (int(self.left_x - _bird.x),
+                      self.y - math.floor(_bird.y))
+        right_index = (int(self.right_x - _bird.x),
+                       self.y - math.floor(_bird.y))
+        left_hit = _bird.mask \
+            .overlap(self.mask, left_index)
+        right_hit = _bird.mask \
+            .overlap(self.mask, right_index)
+
+        if left_hit is not None or right_hit is not None:
+            return True
+
+        return False
+
+    @property
+    def mask(self):
+        return pygame.mask.from_surface(self.img)
+
 
 class Frame:
     def __init__(self):
@@ -224,7 +243,7 @@ if __name__ == "__main__":
                 if event.key == pygame.K_SPACE:
                     bird.jump()
 
-        if pipe.collides_with(bird):
+        if pipe.collides_with(bird) or base.collides_with(bird):
             done = True
         bird.update()
 
