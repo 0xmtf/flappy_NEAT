@@ -3,15 +3,6 @@ import random
 import math
 import os
 
-FPS = 60
-MS_UNIT = 1000.0
-WIDTH = 800
-HEIGHT = 800
-BLACK = (0, 0, 0)
-WIN_CAPTION = "Flappy's gonna breed"
-RESTART_MESSAGE = "Press ENTER to restart"
-SCORE_TEXT = "Score: {}"
-
 
 class Bird:
     ROTATE = 30
