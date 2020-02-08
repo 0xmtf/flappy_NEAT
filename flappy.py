@@ -7,45 +7,26 @@ FPS = 60
 MS_UNIT = 1000.0
 WIDTH = 800
 HEIGHT = 800
+BLACK = (0, 0, 0)
 WIN_CAPTION = "Flappy's gonna breed"
-
-
-# DISPLAY_FONT = pygame.font.SysFont("calibri", 60)
-
-
-def load_img(name):
-    return pygame.image.load(os.path.join("img", name))
-
-
-pygame.init()
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption(WIN_CAPTION)
-
-pipe_bottom = pygame.transform.scale2x(load_img("pipe_bottom.png"))
-pipe_top = pygame.transform.scale2x(load_img("pipe_top.png"))
-background = pygame.transform.scale(load_img("background.png"), (WIDTH, HEIGHT))
-base_spiral = pygame.transform.scale2x(load_img("base_spiral.png"))
-birds = {
-    "up": pygame.transform.scale2x(load_img("bird_up.png")),
-    "level": pygame.transform.scale2x(load_img("bird_level.png")),
-    "down": pygame.transform.scale2x(load_img("bird_down.png"))
-}
+RESTART_MESSAGE = "Press ENTER to restart"
+SCORE_TEXT = "Score: {}"
 
 
 class Bird:
     ROTATE = 30
     DROP_SPEED = 0.2
-    CLIMB_SPEED = 0.2
+    CLIMB_SPEED = 0.24
     CLIMB_DURATION = 300.00
-    BIRD_WIDTH = BIRD_HEIGHT = 42
+    BIRD_WIDTH = BIRD_HEIGHT = 32
 
-    def __init__(self, x, y, climb_rate):
+    def __init__(self, x, y, climb_rate, bird_images):
         self.x = x
         self.y = y
         self.height = self.y
         self.climb_rate = climb_rate
-        self._img_up = birds["up"]
-        self._img_down = birds["down"]
+        self._img_up = bird_images["up"]
+        self._img_down = bird_images["down"]
         self._img_up_mask = pygame.mask \
             .from_surface(self._img_up)
         self._img_down_mask = pygame.mask \
@@ -113,15 +94,16 @@ class Bird:
 
 class Pipe:
     DISTANCE = 200
-    ANIMATION = .18
+    ANIMATION = .28
 
-    def __init__(self, x):
+    def __init__(self, x, pipe_bottom_image, pipe_top_image):
         self.x = x
         self.top = 0
         self.bottom = 0
         self.height = 0
-        self.pipe_bottom = pipe_bottom
-        self.pipe_top = pipe_top
+        self.pipe_bottom = pipe_bottom_image
+        self.pipe_top = pipe_top_image
+        self.visible = True
         self._frame = Frame()
         self._pick_rand_height()
 
@@ -135,9 +117,9 @@ class Pipe:
 
     def collides_with(self, _bird):
         top_index = (int(self.x - _bird.x),
-                     self.top - math.floor(_bird.y))
+                     self.top - round(_bird.y))
         bottom_index = (int(self.x - _bird.x),
-                        self.bottom - math.floor(_bird.y))
+                        self.bottom - round(_bird.y))
         top_hit = _bird.mask \
             .overlap(self._get_mask(position="top"), top_index)
         bottom_hit = _bird.mask \
@@ -159,25 +141,29 @@ class Pipe:
         elif position.lower() == "bottom":
             return pygame.mask.from_surface(self.pipe_bottom)
 
+    @property
+    def width(self):
+        return self.pipe_top.get_width()
+
 
 class BaseSpiral:
-    IMG_WIDTH = base_spiral.get_width()
-    ANIMATION = .18
+    ANIMATION = .28
 
-    def __init__(self):
-        self.y = HEIGHT - 100
-        self.img = base_spiral
+    def __init__(self, height, base_spiral_image):
+        self.y = height
+        self.width = base_spiral_image.get_width()
+        self.img = base_spiral_image
         self.left_x = 0
-        self.right_x = self.IMG_WIDTH
+        self.right_x = self.width
         self._frame = Frame()
 
     def update(self, delta=1):
         self.left_x -= self.ANIMATION * self._frame.to_ms(delta)
         self.right_x -= self.ANIMATION * self._frame.to_ms(delta)
-        if self.left_x + self.IMG_WIDTH < 0:
-            self.left_x = self.right_x + self.IMG_WIDTH
-        if self.right_x + self.IMG_WIDTH < 0:
-            self.right_x = self.left_x + self.IMG_WIDTH
+        if self.left_x + self.width < 0:
+            self.left_x = self.right_x + self.width
+        if self.right_x + self.width < 0:
+            self.right_x = self.left_x + self.width
 
     def draw(self, _screen):
         _screen.blit(self.img, (self.left_x, self.y))
@@ -186,9 +172,9 @@ class BaseSpiral:
 
     def collides_with(self, _bird):
         left_index = (int(self.left_x - _bird.x),
-                      self.y - math.floor(_bird.y))
+                      self.y - round(_bird.y))
         right_index = (int(self.right_x - _bird.x),
-                       self.y - math.floor(_bird.y))
+                       self.y - round(_bird.y))
         left_hit = _bird.mask \
             .overlap(self.mask, left_index)
         right_hit = _bird.mask \
@@ -206,8 +192,8 @@ class BaseSpiral:
 
 class Frame:
     def __init__(self):
-        self.fps = FPS
-        self.ms = MS_UNIT
+        self.fps = 60
+        self.ms = 1000.0
 
     def to_ms(self, frames):
         return self.ms * frames / self.fps
@@ -216,37 +202,138 @@ class Frame:
         return self.fps * millis / self.ms
 
 
-def draw_game(_screen, _background, _bird, _pipe, _base):
-    _screen.blit(_background, (0, 0))
-    _bird.draw(_screen)
-    _pipe.draw(_screen)
-    _base.draw(_screen)
+class Flappy:
+    FPS = 60
+    MS_UNIT = 1000.0
+    WIDTH = 800
+    HEIGHT = 800
+    BLACK = (0, 0, 0)
+    WIN_CAPTION = "Flappy's gonna breed"
+    RESTART_MESSAGE = "Press ENTER to restart"
+    SCORE_TEXT = "Score: {}"
 
-    pygame.display.flip()
+    def __init__(self):
+        self.background_image = None
+        self.base_image = None
+        self.pipe_bottom_image = None
+        self.pipe_top_image = None
+        self.bird_images = None
+        self._load_assets()
+
+        pygame.init()
+        pygame.font.init()
+        self._screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
+        pygame.display.set_caption(self.WIN_CAPTION)
+
+        self.display_font = pygame.font.SysFont("calibri", 40)
+        self.score_font = pygame.font.SysFont("calibri", 30)
+
+    def basic_play(self):
+        bird = self._init_bird()
+        pipes = [self._init_pipe()]
+        base = self._init_base()
+        score = 0
+
+        self.draw_screen(bird, pipes, base, score)
+
+        clock = pygame.time.Clock()
+        done = False
+        lost = False
+        while not done:
+            clock.tick(self.FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        bird.jump()
+
+            bird.update()
+
+            for pipe in pipes:
+                if pipe.collides_with(bird):
+                    self.lost_screen()
+
+                if base.collides_with(bird):
+                    self.lost_screen()
+
+                if pipe.visible and pipe.x < bird.x:
+                    pipe.visible = False
+                    pipes.append(self._init_pipe())
+                    score += 1
+
+                if pipe.x + pipe.width < 0:
+                    pipes.remove(pipe)
+            self.draw_screen(bird, pipes, base, score)
+
+        pygame.quit()
+        quit()
+
+    def draw_screen(self, bird, pipes, base, score):
+        self._screen.blit(self.background_image, (0, 0))
+        bird.draw(self._screen)
+
+        for pipe in pipes:
+            pipe.draw(self._screen)
+
+        base.draw(self._screen)
+
+        score_label = self.score_font \
+            .render(self.SCORE_TEXT.format(score), 1, self.BLACK)
+        self._screen.blit(score_label, (5, 5))
+        pygame.display.flip()
+
+    def lost_screen(self):
+        active = True
+        message = self.display_font.render(self.RESTART_MESSAGE, 1, self.BLACK)
+        while active:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    active = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        self.basic_play()
+
+            self._screen.blit(message, (self.WIDTH / 2 - message.get_width() / 2, self.HEIGHT / 2))
+            pygame.display.flip()
+
+        pygame.quit()
+
+    def _load_assets(self):
+        def _load_transform(file_name, scale):
+            if scale == 1:
+                return pygame.transform.scale(
+                    pygame.image.load(os.path.join("img", file_name)),
+                    (self.WIDTH, self.HEIGHT)
+                )
+            elif scale == 2:
+                return pygame.transform.scale2x(
+                    pygame.image.load(os.path.join("img", file_name))
+                )
+
+        self.background_image = _load_transform("background.png", scale=1)
+        self.pipe_bottom_image = _load_transform("pipe_bottom.png", scale=2)
+        self.pipe_top_image = _load_transform("pipe_top.png", scale=2)
+        self.base_image = _load_transform("base_spiral.png", scale=2)
+        self.bird_images = {
+            "up": _load_transform("bird_up.png", scale=2),
+            "down": _load_transform("bird_down.png", scale=2)
+        }
+
+    def _init_pipe(self):
+        return Pipe(self.WIDTH,
+                    self.pipe_bottom_image,
+                    self.pipe_top_image)
+
+    def _init_bird(self):
+        return Bird(self.WIDTH / 4, self.HEIGHT / 2, 2, self.bird_images)
+
+    def _init_base(self):
+        return BaseSpiral(self.HEIGHT - 100, self.base_image)
 
 
 if __name__ == "__main__":
-    bird = Bird(200, 300, 2)
-    pipe = Pipe(850)
-    base = BaseSpiral()
-
-    draw_game(screen, background, bird, pipe, base)
-    clock = pygame.time.Clock()
-    done = False
-    while not done:
-        clock.tick(FPS)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                done = True
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    bird.jump()
-
-        if pipe.collides_with(bird) or base.collides_with(bird):
-            done = True
-        bird.update()
-
-        draw_game(screen, background, bird, pipe, base)
-
-    pygame.quit()
+    flappy = Flappy()
+    flappy.basic_play()
