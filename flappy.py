@@ -342,7 +342,7 @@ class Flappy:
                         networks.pop(bird_idx)
                         birds.pop(bird_idx)
 
-                    if pipe.visible and pipe.x < bird.x and bird in birds:
+                    if pipe.visible and pipe.x + pipe.width < bird.x and bird in birds:
                         bird_idx = birds.index(bird)
                         pipe.visible = False
                         pipes.append(self._init_pipe())
