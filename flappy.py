@@ -1,21 +1,24 @@
 import pygame
 import random
-import math
+import neat
 import os
 
 
 class Bird:
     ROTATE = 30
-    DROP_SPEED = 0.2
-    CLIMB_SPEED = 0.24
-    CLIMB_DURATION = 300.00
+    CLIMB_RATE = 0
+    DROP_SPEED = 0.18
+    CLIMB_SPEED = 0.18
+    CLIMB_DURATION = 280.00
     BIRD_WIDTH = BIRD_HEIGHT = 32
 
-    def __init__(self, x, y, climb_rate, bird_images):
+    def __init__(self, x, y, bird_images):
         self.x = x
         self.y = y
         self.height = self.y
-        self.climb_rate = climb_rate
+        self.img_width = bird_images["up"].get_width()
+        self.img_height = bird_images["up"].get_height()
+        self.climb_rate = self.CLIMB_RATE
         self._img_up = bird_images["up"]
         self._img_down = bird_images["down"]
         self._img_up_mask = pygame.mask \
@@ -28,13 +31,11 @@ class Bird:
     def jump(self):
         self.climb_rate = self.CLIMB_DURATION
 
-    def update(self, delta=1.2):
+    def update(self, delta=1):
         _frame = Frame()
         if self.climb_rate > 0:
             _climb = 1 - self.climb_rate / self.CLIMB_DURATION
-            self.y -= (self.CLIMB_SPEED *
-                       _frame.to_ms(delta) *
-                       (1 - math.cos(_climb * math.pi)))
+            self.y -= self.CLIMB_SPEED * _frame.to_ms(delta)
             self.climb_rate -= _frame.to_ms(delta)
             self._rotate_down = False
             self._rotate_up = True
@@ -84,7 +85,7 @@ class Bird:
 
 
 class Pipe:
-    DISTANCE = 200
+    DISTANCE = 220
     ANIMATION = .28
 
     def __init__(self, x, pipe_bottom_image, pipe_top_image):
@@ -108,7 +109,7 @@ class Pipe:
 
     def collides_with(self, _bird):
         top_index = (int(self.x - _bird.x),
-                     self.top - round(_bird.y))
+                     self.top - round(_bird.y) - 15)
         bottom_index = (int(self.x - _bird.x),
                         self.bottom - round(_bird.y))
         top_hit = _bird.mask \
@@ -122,7 +123,7 @@ class Pipe:
         return False
 
     def _pick_rand_height(self):
-        self.height = random.randrange(50, 400)
+        self.height = random.randrange(100, 420)
         self.top = self.height - self.pipe_top.get_height()
         self.bottom = self.height + self.DISTANCE
 
@@ -196,9 +197,10 @@ class Frame:
 class Flappy:
     FPS = 60
     MS_UNIT = 1000.0
-    WIDTH = 800
+    WIDTH = 600
     HEIGHT = 800
     BLACK = (0, 0, 0)
+    WHITE = (255, 255, 255)
     WIN_CAPTION = "Flappy's gonna breed"
     RESTART_MESSAGE = "Press ENTER to restart"
     SCORE_TEXT = "Score: {}"
@@ -225,7 +227,7 @@ class Flappy:
         base = self._init_base()
         score = 0
 
-        self.draw_screen(bird, pipes, base, score)
+        self._draw_screen(bird, pipes, base, score)
 
         clock = pygame.time.Clock()
         done = False
@@ -245,10 +247,10 @@ class Flappy:
 
             for pipe in pipes:
                 if pipe.collides_with(bird):
-                    self.lost_screen()
+                    self._lost_screen()
 
                 if base.collides_with(bird):
-                    self.lost_screen()
+                    self._lost_screen()
 
                 if pipe.visible and pipe.x < bird.x:
                     pipe.visible = False
@@ -257,12 +259,103 @@ class Flappy:
 
                 if pipe.x + pipe.width < 0:
                     pipes.remove(pipe)
-            self.draw_screen(bird, pipes, base, score)
+            self._draw_screen(bird, pipes, base, score)
 
         pygame.quit()
         quit()
 
-    def draw_screen(self, bird, pipes, base, score):
+    def neat_lib_play(self):
+        config_file = self._get_config_path()
+
+        config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                             neat.DefaultSpeciesSet, neat.DefaultStagnation,
+                             config_file)
+
+        population = neat.Population(config)
+        population.add_reporter(neat.StdOutReporter(True))
+        stats = neat.StatisticsReporter()
+        population.add_reporter(stats)
+
+        winner = population.run(self._eval_genomes, 150)
+
+        print("\nBest genome: \n{!s}".format(winner))
+
+    def _eval_genomes(self, genomes, config):
+        birds = []
+        local_genomes = []
+        networks = []
+        for genome_id, genome in genomes:
+            genome.fitness = 0.0
+            networks.append(neat.nn.FeedForwardNetwork.
+                            create(genome, config))
+            birds.append(self._init_bird())
+            local_genomes.append(genome)
+
+        pipes = [self._init_pipe()]
+        base = self._init_base()
+        score = 0
+
+        clock = pygame.time.Clock()
+        done = False
+        while not done and len(birds) > 0:
+            clock.tick(self.FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    done = True
+                    pygame.quit()
+                    quit()
+
+            curr_pipe = 0
+            if len(pipes) > 1 and pipes[0].x < bird.x:
+                curr_pipe = 1
+
+            for idx, bird in enumerate(birds):
+                bird.update()
+                output = networks[idx].activate(
+                    (bird.y,
+                     abs(bird.y - pipes[curr_pipe].height),
+                     abs(bird.y - pipes[curr_pipe].bottom))
+                    # abs(bird.y - base.y))
+                )
+
+                if output[0] > 0.5:
+                    bird.jump()
+
+            for bird in birds:
+                bird.update()
+
+            for pipe in pipes:
+                for bird in birds:
+                    if pipe.collides_with(bird) or \
+                            base.collides_with(bird) and bird in birds:
+                        bird_idx = birds.index(bird)
+                        local_genomes[bird_idx].fitness -= 1.5
+                        local_genomes.pop(bird_idx)
+                        networks.pop(bird_idx)
+                        birds.pop(bird_idx)
+
+                    if bird.y < -10:
+                        bird_idx = birds.index(bird)
+                        local_genomes[bird_idx].fitness -= 1.5
+                        local_genomes.pop(bird_idx)
+                        networks.pop(bird_idx)
+                        birds.pop(bird_idx)
+
+                    if pipe.visible and pipe.x < bird.x and bird in birds:
+                        bird_idx = birds.index(bird)
+                        pipe.visible = False
+                        pipes.append(self._init_pipe())
+                        score += 1
+                        local_genomes[bird_idx].fitness += 1.5
+
+                if pipe.x + pipe.width < 0:
+                    pipes.remove(pipe)
+
+            self._draw_screen_neat(birds, pipes, base, score)
+
+    # refactor to be able to have a single draw function
+    def _draw_screen(self, bird, pipes, base, score):
         self._screen.blit(self.background_image, (0, 0))
         bird.draw(self._screen)
 
@@ -276,7 +369,37 @@ class Flappy:
         self._screen.blit(score_label, (5, 5))
         pygame.display.flip()
 
-    def lost_screen(self):
+    def _draw_screen_neat(self, birds, pipes, base, score):
+        self._screen.blit(self.background_image, (0, 0))
+        for bird in birds:
+            bird.draw(self._screen)
+            pygame.draw \
+                .line(self._screen, self.WHITE,
+                      (bird.x + bird.img_width, bird.y + bird.img_height),
+                      (pipes[0].x, pipes[0].height),
+                      3)
+            pygame.draw \
+                .line(self._screen, self.WHITE,
+                      (bird.x + bird.img_width, bird.y + bird.img_height),
+                      (pipes[0].x, pipes[0].bottom),
+                      3)
+            pygame.draw \
+                .line(self._screen, self.WHITE,
+                      (bird.x + bird.img_width / 2, bird.y + bird.img_height),
+                      (bird.x + bird.img_width, base.y),
+                      3)
+
+        for pipe in pipes:
+            pipe.draw(self._screen)
+
+        base.draw(self._screen)
+
+        score_label = self.score_font \
+            .render(self.SCORE_TEXT.format(score), 1, self.BLACK)
+        self._screen.blit(score_label, (5, 5))
+        pygame.display.flip()
+
+    def _lost_screen(self):
         active = True
         message = self.display_font.render(self.RESTART_MESSAGE, 1, self.BLACK)
         while active:
@@ -314,17 +437,24 @@ class Flappy:
         }
 
     def _init_pipe(self):
-        return Pipe(self.WIDTH,
+        return Pipe(self.WIDTH + 50,
                     self.pipe_bottom_image,
                     self.pipe_top_image)
 
     def _init_bird(self):
-        return Bird(self.WIDTH / 4, self.HEIGHT / 2, 2, self.bird_images)
+        rand_y = random.randrange(10, 50)
+        return Bird(self.WIDTH / 4, self.HEIGHT / 2 - rand_y, self.bird_images)
 
     def _init_base(self):
         return BaseSpiral(self.HEIGHT - 100, self.base_image)
 
+    @staticmethod
+    def _get_config_path():
+        curr_dir = os.path.dirname(__file__)
+        return os.path.join(curr_dir, "config.txt")
+
 
 if __name__ == "__main__":
     flappy = Flappy()
-    flappy.basic_play()
+    flappy.neat_lib_play()
+    # flappy.basic_play()
