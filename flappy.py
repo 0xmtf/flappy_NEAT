@@ -213,6 +213,7 @@ class Flappy:
     NEAT_LIB_PLAY = "2. NEAT lib"
     NEAT_SELF_IMPL = "3. NEAT impl"
     SCORE_TEXT = "Score: {}"
+    GEN_TEXT = "Generation: {}"
 
     def __init__(self):
         self.background_image = None
@@ -220,6 +221,7 @@ class Flappy:
         self.pipe_bottom_image = None
         self.pipe_top_image = None
         self.bird_images = None
+        self._bird_generation = 0
         self._load_assets()
 
         pygame.init()
@@ -314,6 +316,7 @@ class Flappy:
         birds = []
         local_genomes = []
         networks = []
+        self._bird_generation += 1
         for genome_id, genome in genomes:
             genome.fitness = 0.0
             networks.append(neat.nn.FeedForwardNetwork.
@@ -418,9 +421,15 @@ class Flappy:
 
         base.draw(self._screen)
 
+        generation_label = self.score_font \
+            .render(self.GEN_TEXT.format(self._bird_generation), 1, self.BLACK)
+
         score_label = self.score_font \
             .render(self.SCORE_TEXT.format(score), 1, self.BLACK)
-        self._screen.blit(score_label, (5, 5))
+
+        self._screen.blit(generation_label, (5, 5))
+        self._screen.blit(score_label, (5, 35))
+
         pygame.display.flip()
 
     def _lost_screen(self):
