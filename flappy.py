@@ -5,19 +5,15 @@ import os
 
 
 class Bird:
-    ROTATE = 30
+    ROTATE_ANGLE = 30
     CLIMB_RATE = 0
     DROP_SPEED = 0.18
     CLIMB_SPEED = 0.18
     CLIMB_DURATION = 280.00
-    BIRD_WIDTH = BIRD_HEIGHT = 32
 
     def __init__(self, x, y, bird_images):
         self.x = x
         self.y = y
-        self.height = self.y
-        self.img_width = bird_images["up"].get_width()
-        self.img_height = bird_images["up"].get_height()
         self.climb_rate = self.CLIMB_RATE
         self._img_up = bird_images["up"]
         self._img_down = bird_images["down"]
@@ -27,37 +23,36 @@ class Bird:
             .from_surface(self._img_down)
         self._rotate_up = False
         self._rotate_down = False
+        self._frame = Frame()
 
     def jump(self):
         self.climb_rate = self.CLIMB_DURATION
 
     def update(self, delta=1):
-        _frame = Frame()
         if self.climb_rate > 0:
-            _climb = 1 - self.climb_rate / self.CLIMB_DURATION
-            self.y -= self.CLIMB_SPEED * _frame.to_ms(delta)
-            self.climb_rate -= _frame.to_ms(delta)
+            self.y -= self.CLIMB_SPEED * self._frame.to_ms(delta)
+            self.climb_rate -= self._frame.to_ms(delta)
             self._rotate_down = False
             self._rotate_up = True
         else:
+            self.y += self.DROP_SPEED * self._frame.to_ms(delta)
             self._rotate_down = True
             self._rotate_up = False
-            self.y += self.DROP_SPEED * _frame.to_ms(delta)
 
     def draw(self, _screen):
         if self._rotate_up:
-            self._tilted_move(_screen, 1)
+            self._tilted_move(_screen, direction=1)
         elif self._rotate_down:
-            self._tilted_move(_screen, -1)
+            self._tilted_move(_screen, direction=-1)
         else:
-            self._tilted_move(_screen, 0)
+            self._tilted_move(_screen, direction=0)
 
     def _tilted_move(self, _screen, direction=0):
         if direction > 0:
-            _rotated = pygame.transform.rotate(self.image, self.ROTATE)
+            _rotated = pygame.transform.rotate(self.image, self.ROTATE_ANGLE)
             _screen.blit(_rotated, self.rect)
         elif direction < 0:
-            _rotated = pygame.transform.rotate(self.image, -self.ROTATE)
+            _rotated = pygame.transform.rotate(self.image, -self.ROTATE_ANGLE)
             _screen.blit(_rotated, self.rect)
         else:
             _screen.blit(self.image, self.rect)
@@ -66,8 +61,8 @@ class Bird:
     def rect(self):
         return pygame.Rect(self.x,
                            self.y,
-                           self.BIRD_WIDTH,
-                           self.BIRD_HEIGHT)
+                           self.img_width,
+                           self.img_height)
 
     @property
     def mask(self):
@@ -83,9 +78,17 @@ class Bird:
         else:
             return self._img_down
 
+    @property
+    def img_height(self):
+        return self._img_up.get_height()
+
+    @property
+    def img_width(self):
+        return self._img_up.get_width()
+
 
 class Pipe:
-    DISTANCE = 220
+    DISTANCE = 160
     ANIMATION = .28
 
     def __init__(self, x, pipe_bottom_image, pipe_top_image):
@@ -141,21 +144,20 @@ class Pipe:
 class BaseSpiral:
     ANIMATION = .28
 
-    def __init__(self, height, base_spiral_image):
-        self.y = height
-        self.width = base_spiral_image.get_width()
+    def __init__(self, y, base_spiral_image):
+        self.y = y
         self.img = base_spiral_image
         self.left_x = 0
-        self.right_x = self.width
+        self.right_x = self.img_width
         self._frame = Frame()
 
     def update(self, delta=1):
         self.left_x -= self.ANIMATION * self._frame.to_ms(delta)
         self.right_x -= self.ANIMATION * self._frame.to_ms(delta)
-        if self.left_x + self.width < 0:
-            self.left_x = self.right_x + self.width
-        if self.right_x + self.width < 0:
-            self.right_x = self.left_x + self.width
+        if abs(self.left_x) > self.img_width:
+            self.left_x = self.right_x + self.img_width
+        if abs(self.right_x) > self.img_width:
+            self.right_x = self.left_x + self.img_width
 
     def draw(self, _screen):
         _screen.blit(self.img, (self.left_x, self.y))
@@ -180,6 +182,10 @@ class BaseSpiral:
     @property
     def mask(self):
         return pygame.mask.from_surface(self.img)
+
+    @property
+    def img_width(self):
+        return self.img.get_width()
 
 
 class Frame:
@@ -315,9 +321,8 @@ class Flappy:
                 output = networks[idx].activate(
                     (bird.y,
                      abs(bird.y - pipes[curr_pipe].height),
-                     abs(bird.y - pipes[curr_pipe].bottom))
-                    # abs(bird.y - base.y))
-                )
+                     abs(bird.y - pipes[curr_pipe].bottom),
+                     abs(bird.y - base.y)))
 
                 if output[0] > 0.5:
                     bird.jump()
@@ -328,14 +333,8 @@ class Flappy:
             for pipe in pipes:
                 for bird in birds:
                     if pipe.collides_with(bird) or \
-                            base.collides_with(bird) and bird in birds:
-                        bird_idx = birds.index(bird)
-                        local_genomes[bird_idx].fitness -= 1.5
-                        local_genomes.pop(bird_idx)
-                        networks.pop(bird_idx)
-                        birds.pop(bird_idx)
-
-                    if bird.y < -10:
+                            base.collides_with(bird) or \
+                            bird.y < -10:
                         bird_idx = birds.index(bird)
                         local_genomes[bird_idx].fitness -= 1.5
                         local_genomes.pop(bird_idx)
@@ -354,7 +353,6 @@ class Flappy:
 
             self._draw_screen_neat(birds, pipes, base, score)
 
-    # refactor to be able to have a single draw function
     def _draw_screen(self, bird, pipes, base, score):
         self._screen.blit(self.background_image, (0, 0))
         bird.draw(self._screen)
