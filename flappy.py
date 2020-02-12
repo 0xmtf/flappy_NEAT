@@ -209,6 +209,9 @@ class Flappy:
     WHITE = (255, 255, 255)
     WIN_CAPTION = "Flappy's gonna breed"
     RESTART_MESSAGE = "Press ENTER to restart"
+    BASIC_PLAY = "1. Basic play"
+    NEAT_LIB_PLAY = "2. NEAT lib"
+    NEAT_SELF_IMPL = "3. NEAT impl"
     SCORE_TEXT = "Score: {}"
 
     def __init__(self):
@@ -285,6 +288,27 @@ class Flappy:
         winner = population.run(self._eval_genomes, 150)
 
         print("\nBest genome: \n{!s}".format(winner))
+
+    def neat_self_impl_play(self):
+        pass
+
+    def intro_screen(self):
+        basic_msg = self.display_font. \
+            render(self.BASIC_PLAY, 1, self.BLACK)
+        neat_lib_msg = self.display_font. \
+            render(self.NEAT_LIB_PLAY, 1, self.BLACK)
+        neat_impl_msg = self.display_font. \
+            render(self.NEAT_SELF_IMPL, 1, self.BLACK)
+
+        self._screen.blit(self.background_image, (0, 0))
+        self._screen.blit(self.base_image, (0, self.HEIGHT - 100))
+        self._screen.blit(basic_msg,
+                          (self.WIDTH / 2 - basic_msg.get_width() / 2, self.HEIGHT / 3))
+        self._screen.blit(neat_lib_msg,
+                          (self.WIDTH / 2 - basic_msg.get_width() / 2, self.HEIGHT / 3 + 75))
+        self._screen.blit(neat_impl_msg,
+                          (self.WIDTH / 2 - basic_msg.get_width() / 2, self.HEIGHT / 3 + 150))
+        pygame.display.flip()
 
     def _eval_genomes(self, genomes, config):
         birds = []
@@ -414,6 +438,7 @@ class Flappy:
             pygame.display.flip()
 
         pygame.quit()
+        quit()
 
     def _load_assets(self):
         def _load_transform(file_name, scale):
@@ -456,5 +481,19 @@ class Flappy:
 
 if __name__ == "__main__":
     flappy = Flappy()
-    flappy.neat_lib_play()
-    # flappy.basic_play()
+    active = True
+    while active:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                active = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_1:
+                    flappy.basic_play()
+                if event.key == pygame.K_2:
+                    flappy.neat_lib_play()
+                if event.key == pygame.K_3:
+                    flappy.neat_self_impl_play()
+        flappy.intro_screen()
+
+    pygame.quit()
+    quit()
