@@ -1,6 +1,10 @@
 from neat_impl.node_gene import NodeGene, NodeTypes
 from neat_impl.connection_gene import ConnectionGene
 import random
+import pygame
+
+pygame.init()
+pygame.font.init()
 
 
 class Genome:
@@ -15,6 +19,23 @@ class Genome:
 
     def crossover(self, other_parent):
         pass
+
+    def full_connect(self):
+        for i in range(3):
+            self.nodes.append(NodeGene(i + 1, NodeTypes.INPUT))
+
+        self.nodes.append(NodeGene(4, NodeTypes.OUTPUT))
+        self.nodes.append(NodeGene(5, NodeTypes.HIDDEN))
+
+        self._add_conn(self.nodes[0], self.nodes[3])
+        self._add_conn(self.nodes[1], self.nodes[3])
+        self._add_conn(self.nodes[2], self.nodes[4])
+        self._add_conn(self.nodes[4], self.nodes[3])
+
+    def _add_conn(self, n_in, n_out):
+        weight = random.randrange(-30, 30)
+        self.connection_genes \
+            .append(ConnectionGene(n_in, n_out, weight, 0))
 
     def _mutate_add_connection(self):
         in_node = self.nodes[random.randint(len(self.nodes))]
