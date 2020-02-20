@@ -1,10 +1,6 @@
 from neat_impl.node_gene import NodeGene, NodeTypes
 from neat_impl.connection_gene import ConnectionGene
 import random
-import pygame
-
-pygame.init()
-pygame.font.init()
 
 
 class Genome:
@@ -17,8 +13,28 @@ class Genome:
     def mutate(self):
         pass
 
-    def crossover(self, other_parent):
-        pass
+    def crossover(self, parent1, parent2):
+        offspring = Genome({})
+
+        if not parent1.fitness > parent1.fitness:
+            parent1, parent2 = parent2, parent1
+
+        for node in parent1.nodes:
+            offspring.nodes.append(NodeGene(node.key, node.node_type))
+
+        for parent1_cg in parent1.connection_genes:
+            cg_idx = self.matching_gene(parent2, parent1_cg.innovation_number)
+            if cg_idx >= 0:
+                if random.randint(1) < 0.5:
+                    offspring.add_conn(parent1_cg.in_node, parent1_cg.out_node)
+                else:
+                    parent2_cg = parent2.connection_genes[cg_idx]
+                    offspring.add_conn(parent2_cg.in_node, parent2_cg.out_node)
+            else:
+                # disjoint / excess genes
+                offspring.add_conn(parent1_cg.in_node, parent1_cg.out_node)
+
+        return offspring
 
     def full_connect(self):
         for i in range(3):
@@ -27,12 +43,12 @@ class Genome:
         self.nodes.append(NodeGene(4, NodeTypes.OUTPUT))
         self.nodes.append(NodeGene(5, NodeTypes.HIDDEN))
 
-        self._add_conn(self.nodes[0], self.nodes[3])
-        self._add_conn(self.nodes[1], self.nodes[3])
-        self._add_conn(self.nodes[2], self.nodes[4])
-        self._add_conn(self.nodes[4], self.nodes[3])
+        self.add_conn(self.nodes[0], self.nodes[3])
+        self.add_conn(self.nodes[1], self.nodes[3])
+        self.add_conn(self.nodes[2], self.nodes[4])
+        self.add_conn(self.nodes[4], self.nodes[3])
 
-    def _add_conn(self, n_in, n_out):
+    def add_conn(self, n_in, n_out):
         weight = random.randrange(-30, 30)
         self.connection_genes \
             .append(ConnectionGene(n_in, n_out, weight, 0))
@@ -72,3 +88,11 @@ class Genome:
 
         self.nodes.append(new_node)
         self.connection_genes.append([in_to_new, new_to_out])
+
+    @staticmethod
+    def matching_gene(parent, innovation):
+        for cg_idx, cg in enumerate(parent.connection_genes):
+            if innovation == cg.innovation_number:
+                return cg_idx
+
+        return -1

@@ -5,6 +5,8 @@ import pygame
 gen = Genome({})
 gen.full_connect()
 active = True
+pygame.init()
+pygame.font.init()
 font = pygame.font.SysFont("calibri", 30)
 screen = pygame.display.set_mode((800, 800))
 
