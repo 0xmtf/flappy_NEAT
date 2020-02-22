@@ -16,7 +16,7 @@ class Genome:
     def crossover(self, parent1, parent2):
         offspring = Genome({})
 
-        if not parent1.fitness > parent1.fitness:
+        if not parent1.fitness > parent2.fitness:
             parent1, parent2 = parent2, parent1
 
         for node in parent1.nodes:
@@ -53,6 +53,17 @@ class Genome:
         self.connection_genes \
             .append(ConnectionGene(n_in, n_out, weight, 0))
 
+    def compatibility_distance(self, genome1, genome2):
+        disjoint_coefficient = 1.0  # from config
+
+        disjoint_distance = (self._disjoint_genes_count(genome1, genome2) * disjoint_coefficient)
+        genes_count = max(len(genome1.connection_genes), len(genome2.connection_genes))
+        avg_weight = self._avg_weight_diff(genome1, genome2)
+
+        return (disjoint_distance /
+                genes_count +
+                avg_weight)
+
     def _mutate_add_connection(self):
         in_node = self.nodes[random.randint(len(self.nodes))]
         out_node = self.nodes[random.randint(len(self.nodes))]
@@ -88,6 +99,44 @@ class Genome:
 
         self.nodes.append(new_node)
         self.connection_genes.append([in_to_new, new_to_out])
+
+    def _disjoint_genes_count(self, genome1, genome2):
+        disjoint_nodes = abs(len(genome1.nodes) - len(genome2.nodes))
+
+        if len(genome1.connection_genes) < len(genome2.connection_genes):
+            genome1, genome2 = genome2, genome1
+
+        disjoint_connections = 0.0
+        inno_numbers1 = [connection.innovation_number
+                         for connection in genome1.connection_genes]
+        inno_numbers2 = [connection.innovation_number
+                         for connection in genome2.connection_genes]
+
+        for inno_number in set(inno_numbers1 + inno_numbers2):
+            if inno_number not in inno_numbers1 or \
+                    inno_number not in inno_numbers2:
+                disjoint_connections += 1
+
+        return disjoint_nodes + disjoint_connections
+
+    def _avg_weight_diff(self, genome1, genome2):
+        match_count = 0
+        total_diff = 0
+
+        if len(genome1) < len(genome2):
+            genome1, genome2 = genome2, genome1
+
+        for cg1 in genome1.connection_genes:
+            for cg2 in genome2.connection_genes:
+                if cg1.innovation_numbers == cg2.innovation_number:
+                    total_diff = abs(cg1.weight - cg2.weight)
+                    match_count += 1
+                    break
+
+        if match_count == 0:
+            return random.randrange(50, 100)
+
+        return total_diff / match_count
 
     @staticmethod
     def matching_gene(parent, innovation):
