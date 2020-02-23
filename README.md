@@ -8,3 +8,6 @@
 - cd flappy_NEAT
 - pip install -r requirements.txt
 - python flappy.py
+
+## neat
+- [original NEAT paper](http://nn.cs.utexas.edu/downloads/papers/stanley.ec02.pdf)
