@@ -363,9 +363,9 @@ class Flappy:
                             base.collides_with(bird) or \
                             bird.y < -10:
                         bird_idx = birds.index(bird)
-                        # local_genomes[bird_idx].fitness -= 1.5
-                        # local_genomes.pop(bird_idx)
-                        # networks.pop(bird_idx)
+                        local_genomes[bird_idx].fitness -= 1.5
+                        local_genomes.pop(bird_idx)
+                        networks.pop(bird_idx)
                         birds.pop(bird_idx)
 
                     if bird in birds and \
@@ -375,7 +375,7 @@ class Flappy:
                         pipe.visible = False
                         pipes.append(self._init_pipe())
                         score += 1
-                        # local_genomes[bird_idx].fitness += 1.5
+                        local_genomes[bird_idx].fitness += 1.5
 
                 if pipe.x + pipe.width < 0:
                     pipes.remove(pipe)
