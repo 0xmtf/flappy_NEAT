@@ -1,5 +1,8 @@
 # flappy_NEAT
 
+## demo
+![demo gif](img/demo/flappy_animation.gif)
+
 ## prerequisites
 - python >= 3.7
 
