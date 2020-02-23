@@ -1,5 +1,6 @@
 from neat_impl.node_gene import NodeGene, NodeTypes
 from neat_impl.connection_gene import ConnectionGene
+from neat_impl.innovation_history import InnovationHistory
 import random
 
 
@@ -7,11 +8,21 @@ class Genome:
     def __init__(self, params):
         self.connection_genes = []  # connection of the node genes => phenotype
         self.nodes = []  # represents input/output node genes
-
         self.fitness = None
 
+        self.params = params
+        self.innovation_history = InnovationHistory()
+
     def mutate(self):
-        pass
+        if random.randint(1) < self.params.mutate_weight_proba:
+            for cg in self.connection_genes:
+                cg.mutate_weight()
+
+        if random.randint(1) < self.params.add_conn_proba:
+            self._mutate_add_connection()
+
+        if random.randint(1) < self.params.add_node_proba:
+            self._mutate_add_node()
 
     def crossover(self, parent1, parent2):
         offspring = Genome({})
@@ -36,7 +47,35 @@ class Genome:
 
         return offspring
 
-    def full_connect(self):
+    def connect(self):
+        if self.params.connection_type.lower() == "full":
+            self._full_connect()
+
+    def add_conn(self, in_node, out_node, weight=None):
+        if weight is None:
+            weight = random.randrange(self.params.min_weight,
+                                      self.params.max_weight)
+
+        innovation_number = self.innovation_history \
+            .get_innovation(in_node.key, out_node.key)
+
+        self.connection_genes.append(ConnectionGene(in_node,
+                                                    out_node,
+                                                    weight,
+                                                    innovation_number))
+
+    def compatibility_distance(self, genome1, genome2):
+        disjoint_distance = (self._disjoint_genes_count(genome1, genome2) *
+                             self.params.disjoint_coefficient)
+        genes_count = max(len(genome1.connection_genes),
+                          len(genome2.connection_genes))
+        avg_weight = self._avg_weight_diff(genome1, genome2)
+
+        return (disjoint_distance /
+                genes_count +
+                avg_weight)
+
+    def _full_connect(self):
         for i in range(3):
             self.nodes.append(NodeGene(i + 1, NodeTypes.INPUT))
 
@@ -48,26 +87,9 @@ class Genome:
         self.add_conn(self.nodes[2], self.nodes[4])
         self.add_conn(self.nodes[4], self.nodes[3])
 
-    def add_conn(self, n_in, n_out):
-        weight = random.randrange(-30, 30)
-        self.connection_genes \
-            .append(ConnectionGene(n_in, n_out, weight, 0))
-
-    def compatibility_distance(self, genome1, genome2):
-        disjoint_coefficient = 1.0  # from config
-
-        disjoint_distance = (self._disjoint_genes_count(genome1, genome2) * disjoint_coefficient)
-        genes_count = max(len(genome1.connection_genes), len(genome2.connection_genes))
-        avg_weight = self._avg_weight_diff(genome1, genome2)
-
-        return (disjoint_distance /
-                genes_count +
-                avg_weight)
-
     def _mutate_add_connection(self):
         in_node = self.nodes[random.randint(len(self.nodes))]
         out_node = self.nodes[random.randint(len(self.nodes))]
-        weight = random.randrange(-1, 1)
 
         if in_node.node_type == NodeTypes.HIDDEN and \
                 out_node.node_type == NodeTypes.INPUT:
@@ -81,8 +103,7 @@ class Genome:
                 out_node.node_type == NodeTypes.INPUT:
             in_node, out_node = out_node, in_node
 
-        self.connection_genes \
-            .append(ConnectionGene(in_node, out_node, weight, 0))
+        self.add_conn(in_node, out_node)
 
     def _mutate_add_node(self):
         rand_con = random.randint(len(self.connection_genes))
@@ -94,11 +115,10 @@ class Genome:
 
         new_node = NodeGene(len(self.nodes), NodeTypes.HIDDEN)
 
-        in_to_new = ConnectionGene(in_node, new_node, 1, 0)
-        new_to_out = ConnectionGene(new_node, out_node, connection.weight, 0)
+        self.add_conn(in_node, new_node, weight=1)
+        self.add_conn(new_node, out_node, weight=connection.weight)
 
         self.nodes.append(new_node)
-        self.connection_genes.append([in_to_new, new_to_out])
 
     def _disjoint_genes_count(self, genome1, genome2):
         disjoint_nodes = abs(len(genome1.nodes) - len(genome2.nodes))

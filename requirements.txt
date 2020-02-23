@@ -1,2 +1,3 @@
+numpy==1.18.0
 pygame==2.0.0.dev6
 neat-python==0.92

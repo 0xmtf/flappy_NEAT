@@ -1,0 +1,31 @@
+{
+  "genome": {
+    "fitness_criterion": "max",
+    "fitness_threshold": 100,
+    "population_size": 10,
+    "reset_extinct": false,
+    "activation_func": "tanh",
+    "disjoint_coefficient": 1.0,
+    "mutate_weight_proba": 0.5,
+    "add_conn_proba": 0.5,
+    "add_node_proba": 0.1,
+    "delete_con_proba": 0.5,
+    "delete_node_proba": 0.1,
+    "input_nodes_count": 1,
+    "outputs_nodes_count": 1,
+    "hidden_nodes_count": 0,
+    "connection_type": "full",
+    "max_weight": 30,
+    "min_weight": -30
+  },
+  "stagnation": {
+    "fitness_func": "max",
+    "max_stagnation": 25,
+    "species_elitism": 3
+  },
+  "reproduction": {
+    "elitism": 3,
+    "survival_threshold": 0.2
+  }
+}
+
