@@ -1,6 +1,6 @@
 class InnovationHistory:
     """
-    :Tracks historical markers that identifies each gene
+    :Tracks historical markers that identify each gene
     :New genes are assigned new increasingly higher numbers
     :TODO: test if numerical node representations
     :TODO: are enough for tracking old/new genes
