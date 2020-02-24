@@ -25,7 +25,7 @@ class Genome:
             self._mutate_add_node()
 
     def crossover(self, parent1, parent2):
-        offspring = Genome({})
+        offspring = Genome(self.params)
 
         if not parent1.fitness > parent2.fitness:
             parent1, parent2 = parent2, parent1
@@ -48,8 +48,9 @@ class Genome:
         return offspring
 
     def connect(self):
-        if self.params.connection_type.lower() == "full":
-            self._full_connect()
+        if self.params.connection_type.lower() == "full" and \
+                not self.params.hidden_nodes_count:
+            self._full_connect_direct()
 
     def add_conn(self, in_node, out_node, weight=None):
         if weight is None:
@@ -75,17 +76,21 @@ class Genome:
                 genes_count +
                 avg_weight)
 
-    def _full_connect(self):
-        for i in range(3):
-            self.nodes.append(NodeGene(i + 1, NodeTypes.INPUT))
+    def _full_connect_direct(self):
+        for in_num in range(1, self.params.input_nodes_count + 1):
+            self.nodes.append(NodeGene(in_num, NodeTypes.INPUT))
 
-        self.nodes.append(NodeGene(4, NodeTypes.OUTPUT))
-        self.nodes.append(NodeGene(5, NodeTypes.HIDDEN))
+        for out_num in range(1, self.params.output_nodes_count + 1):
+            self.nodes.append(NodeGene(in_num + out_num, NodeTypes.OUTPUT))
 
-        self.add_conn(self.nodes[0], self.nodes[3])
-        self.add_conn(self.nodes[1], self.nodes[3])
-        self.add_conn(self.nodes[2], self.nodes[4])
-        self.add_conn(self.nodes[4], self.nodes[3])
+        in_nodes = [node for node in self.nodes
+                    if node.node_type == NodeTypes.INPUT]
+        out_nodes = [node for node in self.nodes
+                     if node.node_type == NodeTypes.OUTPUT]
+
+        for in_node in in_nodes:
+            for out_node in out_nodes:
+                self.add_conn(in_node, out_node)
 
     def _mutate_add_connection(self):
         in_node = self.nodes[random.randint(len(self.nodes))]

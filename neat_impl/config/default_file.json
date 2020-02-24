@@ -12,11 +12,12 @@
     "delete_con_proba": 0.5,
     "delete_node_proba": 0.1,
     "input_nodes_count": 1,
-    "outputs_nodes_count": 1,
+    "output_nodes_count": 1,
     "hidden_nodes_count": 0,
     "connection_type": "full",
     "max_weight": 30,
-    "min_weight": -30
+    "min_weight": -30,
+    "compatibility_threshold": 3.0
   },
   "stagnation": {
     "fitness_func": "max",

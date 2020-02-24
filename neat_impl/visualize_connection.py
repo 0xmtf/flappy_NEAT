@@ -3,7 +3,7 @@ from neat_impl.node_gene import NodeTypes
 import pygame
 
 gen = Genome({})
-gen.full_connect()
+gen._full_connect_direct()
 active = True
 pygame.init()
 pygame.font.init()

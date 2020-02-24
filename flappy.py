@@ -317,7 +317,7 @@ class Flappy:
         local_genomes = []
         networks = []
         self._bird_generation += 1
-        for genome_id, genome in genomes:
+        for genome in genomes:
             genome.fitness = 0.0
             networks.append(neat.nn.FeedForwardNetwork.
                             create(genome, config))
