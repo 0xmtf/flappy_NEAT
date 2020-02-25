@@ -17,11 +17,11 @@ class Population:
 
         self.population = self.reproduction.create(config.genome_params)
         # self.species = Species()
-        self.generation = 0
 
-        self.species = self._speciate()
-
+        self.species = []  # list(Species)
+        self._speciate()
         self.champion = None
+        self.generation = 0
 
     def evaluate(self, func, iterations=0):
         champion = None
@@ -39,13 +39,22 @@ class Population:
             if self.champion is None or best.fitness > self.champion.fitness:
                 self.champion = best
 
+            self.population = self.reproduction.reproduce(self.species)
+
+            # do stuff
+
+            self._speciate()
+
     def _speciate(self):
         """
         :no exact idea how to do this so will move to separate class later
+        :TODO: explore k-means clustering for dividing into species!?
         :return: population divided into species using individual compatibility distance
         """
         if self.generation == 0:
-            return self.population
+            s = Species()
+            s.members = self.population
+            self.species.append(s)
 
         new_species = []
         for member in self.species:
@@ -56,3 +65,13 @@ class Population:
                     new_species.append(new_member)
 
         return []
+
+    def _kill_stale_species(self):
+        """
+        :Kill species that don't improve (cull)
+        :Probably move to separate stagnation class
+        :return:
+        """
+        for idx, spec in enumerate(self.species):
+            if spec.staleness >= self.config.stagnation_params.max_stagnation:
+                self.species.pop(idx)

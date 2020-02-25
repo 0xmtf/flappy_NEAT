@@ -13,7 +13,7 @@ class Reproduction:
 
         return genomes
 
-    def reproduce(self):
+    def reproduce(self, species):
         """
         crossover, mutate and i'm lost -_-
         :return: new population

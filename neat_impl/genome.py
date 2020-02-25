@@ -14,15 +14,15 @@ class Genome:
         self.innovation_history = InnovationHistory()
 
     def mutate(self):
-        if random.randint(1) < self.params.mutate_weight_proba:
+        if random.random() < self.params.mutate_weight_proba:
             for cg in self.connection_genes:
                 cg.mutate_weight()
 
-        if random.randint(1) < self.params.add_conn_proba:
-            self._mutate_add_connection()
-
-        if random.randint(1) < self.params.add_node_proba:
+        if random.random() < self.params.add_node_proba:
             self._mutate_add_node()
+
+        if random.random() < self.params.add_conn_proba:
+            self._mutate_add_connection()
 
     def crossover(self, parent1, parent2):
         offspring = Genome(self.params)
@@ -36,14 +36,24 @@ class Genome:
         for parent1_cg in parent1.connection_genes:
             cg_idx = self.matching_gene(parent2, parent1_cg.innovation_number)
             if cg_idx >= 0:
-                if random.randint(1) < 0.5:
-                    offspring.add_conn(parent1_cg.in_node, parent1_cg.out_node)
+                if random.random() < 0.5:
+                    offspring.add_conn(parent1_cg.in_node,
+                                       parent1_cg.out_node,
+                                       weight=parent1_cg.weight,
+                                       enabled=parent1_cg.enabled)
                 else:
+                    # TODO : doesn't seem to work as intended
                     parent2_cg = parent2.connection_genes[cg_idx]
-                    offspring.add_conn(parent2_cg.in_node, parent2_cg.out_node)
+                    offspring.add_conn(parent2_cg.in_node,
+                                       parent2_cg.out_node,
+                                       weight=parent2_cg.weight,
+                                       enabled=parent2_cg.enabled)
             else:
                 # disjoint / excess genes
-                offspring.add_conn(parent1_cg.in_node, parent1_cg.out_node)
+                offspring.add_conn(parent1_cg.in_node,
+                                   parent1_cg.out_node,
+                                   weight=parent1_cg.weight,
+                                   enabled=parent1_cg.enabled)
 
         return offspring
 
@@ -52,7 +62,7 @@ class Genome:
                 not self.params.hidden_nodes_count:
             self._full_connect_direct()
 
-    def add_conn(self, in_node, out_node, weight=None):
+    def add_conn(self, in_node, out_node, weight=None, enabled=True):
         if weight is None:
             weight = random.randrange(self.params.min_weight,
                                       self.params.max_weight)
@@ -63,7 +73,8 @@ class Genome:
         self.connection_genes.append(ConnectionGene(in_node,
                                                     out_node,
                                                     weight,
-                                                    innovation_number))
+                                                    innovation_number,
+                                                    enabled))
 
     def compatibility_distance(self, genome1, genome2):
         disjoint_distance = (self._disjoint_genes_count(genome1, genome2) *
@@ -71,7 +82,6 @@ class Genome:
         genes_count = max(len(genome1.connection_genes),
                           len(genome2.connection_genes))
         avg_weight = self._avg_weight_diff(genome1, genome2)
-
         return (disjoint_distance /
                 genes_count +
                 avg_weight)
@@ -93,9 +103,12 @@ class Genome:
                 self.add_conn(in_node, out_node)
 
     def _mutate_add_connection(self):
-        in_node = self.nodes[random.randint(len(self.nodes))]
-        out_node = self.nodes[random.randint(len(self.nodes))]
+        inputs_len = len([node for node in self.nodes
+                          if node.node_type == NodeTypes.INPUT])
+        in_node = self.nodes[random.randint(0, inputs_len - 1)]
+        out_node = self.nodes[random.randint(inputs_len, len(self.nodes) - 1)]
 
+        # TODO: might be useless to check for order
         if in_node.node_type == NodeTypes.HIDDEN and \
                 out_node.node_type == NodeTypes.INPUT:
             in_node, out_node = out_node, in_node
@@ -108,17 +121,24 @@ class Genome:
                 out_node.node_type == NodeTypes.INPUT:
             in_node, out_node = out_node, in_node
 
-        self.add_conn(in_node, out_node)
+        existing_connection = False
+        for cg in self.connection_genes:
+            if cg.in_node.key == in_node.key and cg.out_node.key == out_node.key:
+                existing_connection = True
+                break
+
+        if not existing_connection:
+            self.add_conn(in_node, out_node)
 
     def _mutate_add_node(self):
-        rand_con = random.randint(len(self.connection_genes))
+        rand_con = random.randint(0, len(self.connection_genes) - 1)
         connection = self.connection_genes[rand_con]
         self.connection_genes[rand_con].disable()
 
         in_node = connection.in_node
         out_node = connection.out_node
 
-        new_node = NodeGene(len(self.nodes), NodeTypes.HIDDEN)
+        new_node = NodeGene(len(self.nodes) + 1, NodeTypes.HIDDEN)
 
         self.add_conn(in_node, new_node, weight=1)
         self.add_conn(new_node, out_node, weight=connection.weight)

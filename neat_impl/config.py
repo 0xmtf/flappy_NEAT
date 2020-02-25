@@ -1,5 +1,7 @@
+from collections import namedtuple
 import json
 import os
+from neat_impl.genome import Genome
 
 
 class Config:
@@ -13,9 +15,13 @@ class Config:
         self._map_json(self._load_json(config_file))
 
     def _map_json(self, data):
-        self.genome_params = data["genome"]
-        self.stagnation_params = data["stagnation"]
-        self.reproduction_params = data["reproduction"]
+        self.genome_params = self._to_object("GenomeParams", data["genome"])
+        self.stagnation_params = self._to_object("StagnationParams", data["stagnation"])
+        self.reproduction_params = self._to_object("ReproductionParams", data["reproduction"])
+
+    @staticmethod
+    def _to_object(name, d):
+        return namedtuple(name, d.keys())(*d.values())
 
     @staticmethod
     def _load_json(file_path):

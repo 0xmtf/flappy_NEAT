@@ -3,15 +3,15 @@ import random
 
 
 class ConnectionGene:
-    def __init__(self, in_node, out_node, weight, innovation_number):
+    def __init__(self, in_node, out_node, weight, innovation_number, enabled=True):
         self.in_node = in_node
         self.out_node = out_node
         self.weight = weight
-        self.enabled = True
+        self.enabled = enabled
         self.innovation_number = innovation_number
 
     def mutate_weight(self):
-        if random.randint(1) < .1:
+        if random.random() < .1:
             self.weight = random.randrange(-30, 30)
         else:
             mu, sigma = 0, .1

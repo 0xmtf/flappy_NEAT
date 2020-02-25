@@ -201,7 +201,7 @@ class Frame:
 
 
 class Flappy:
-    FPS = 60
+    FPS = 90
     MS_UNIT = 1000.0
     WIDTH = 600
     HEIGHT = 800
@@ -317,7 +317,7 @@ class Flappy:
         local_genomes = []
         networks = []
         self._bird_generation += 1
-        for genome in genomes:
+        for genome_id, genome in genomes:
             genome.fitness = 0.0
             networks.append(neat.nn.FeedForwardNetwork.
                             create(genome, config))
@@ -357,7 +357,7 @@ class Flappy:
             for bird in birds:
                 bird.update()
 
-            for pipe in pipes:
+            for pipe in pipes:  # O(n^3)
                 for bird in birds:
                     if pipe.collides_with(bird) or \
                             base.collides_with(bird) or \
