@@ -357,7 +357,7 @@ class Flappy:
             for bird in birds:
                 bird.update()
 
-            for pipe in pipes:  # O(n^3)
+            for pipe in pipes:
                 for bird in birds:
                     if pipe.collides_with(bird) or \
                             base.collides_with(bird) or \
