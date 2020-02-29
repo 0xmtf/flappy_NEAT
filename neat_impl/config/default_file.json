@@ -25,7 +25,7 @@
     "species_elitism": 3
   },
   "reproduction": {
-    "elitism": 3,
+    "elitism": 2,
     "survival_threshold": 0.2
   }
 }

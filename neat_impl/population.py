@@ -1,35 +1,37 @@
 from neat_impl.reproduction import Reproduction
 from neat_impl.species import Species
+from neat_impl.config import Config
 from statistics import mean
+
+fitness_funcs = {
+    "max": max,
+    "sum": sum,
+    "mean": mean
+}
 
 
 class Population:
     def __init__(self, config):
         self.config = config
 
-        self.reproduction = Reproduction(config.reproduction_params)
+        self.reproduction = Reproduction(config)
 
-        # TODO: replace dumb way of assigning func
-        if config.fitness_criterion == "max":
-            self.fitness_criterion = max
-        elif config.fitness_criterion == "mean":
-            self.fitness_criterion = mean
+        # might scale better for new funcs types, without adding cute ifs
+        self.fitness_criterion = fitness_funcs[config.genome_params.fitness_criterion]
 
-        self.population = self.reproduction.create(config.genome_params)
-        # self.species = Species()
-
+        self.population = self.reproduction.create()
         self.species = []  # list(Species)
-        self._speciate()
+        self.speciate()
         self.champion = None
         self.generation = 0
 
-    def evaluate(self, func, iterations=0):
+    def evaluate(self, evaluator, iterations=0):
         champion = None
         curr_iteration = 0
         while curr_iteration < iterations:
             curr_iteration += 1
 
-            func(self.population, self.config)
+            evaluator(self.population, self.config)
 
             best = None
             for genome in self.population:
@@ -39,39 +41,71 @@ class Population:
             if self.champion is None or best.fitness > self.champion.fitness:
                 self.champion = best
 
-            self.population = self.reproduction.reproduce(self.species)
+            try:
+                self.population = self.reproduction.breed(self.species)
+            except Exception:
+                if self.config.genome_params.reset_extinct:
+                    self.population = self.reproduction.create()
+                else:
+                    return
 
             # do stuff
 
-            self._speciate()
+            self.speciate()
+            self.generation += 1
 
-    def _speciate(self):
+    def speciate(self):
+        compatibility_threshold = self.config.genome_params.compatibility_threshold
+        species = []
+
+        # assign members to each of the species
+        population = self.population
+        for s in self.species:
+            for idx, p in enumerate(population):
+                distance = p.compatibility_distance(s.champion, p)
+                if distance < compatibility_threshold:
+                    population.pop(idx)
+                    s.update(p)
+
+        # divide newborn population or unspeciated individuals into species
+        for p in population:
+            distances = []
+            for s in species:
+                distance = p.compatibility_distance(s.champion, p)
+                if distance < compatibility_threshold:
+                    distances.append((distance, s))
+
+            # check how py checks for empty list |if distances|,
+            # might be slow if it computes len first
+            if distances:
+                _, s = min(distances, key=lambda d: d[0])
+                s.update(p)
+            else:
+                s = Species()
+                s.update(p)
+                species.append(s)
+
+        # this is obviously dumb here, will change
+        for s in species:
+            s.update_avg_fitness()
+        self.species.clear()
+        self.species = species
+
+    def kill_stale_species(self):
         """
-        :no exact idea how to do this so will move to separate class later
-        :TODO: explore k-means clustering for dividing into species!?
-        :return: population divided into species using individual compatibility distance
-        """
-        if self.generation == 0:
-            s = Species()
-            s.members = self.population
-            self.species.append(s)
-
-        new_species = []
-        for member in self.species:
-            for new_member in self.population:
-                compatibility = member.compatibility_distance(member, new_member)
-
-                if compatibility < self.config.genome_params.compatibility_threshold:
-                    new_species.append(new_member)
-
-        return []
-
-    def _kill_stale_species(self):
-        """
-        :Kill species that don't improve (cull)
+        :Kill species that don't improve
         :Probably move to separate stagnation class
         :return:
         """
         for idx, spec in enumerate(self.species):
             if spec.staleness >= self.config.stagnation_params.max_stagnation:
                 self.species.pop(idx)
+
+
+config = Config()
+pop = Population(config)
+
+pop.speciate()
+for i, s in enumerate(pop.species):
+    print("Species: {0} with {1} genomes"
+          .format(i, len(s.members)))

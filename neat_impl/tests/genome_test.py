@@ -41,5 +41,12 @@ class GenomeTest(unittest.TestCase):
         # check child got disabled gene transferred
         assert child.connection_genes[disabled_gene].enabled == False
 
+    def test_mutate_add_node(self):
+        pass
+
+    def test_mutate_add_conn(self):
+        pass
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6,11 +6,12 @@ import random
 
 class Genome:
     def __init__(self, params):
-        self.connection_genes = []  # connection of the node genes => phenotype
-        self.nodes = []  # represents input/output node genes
-        self.fitness = None
+        self.connection_genes = []
+        self.nodes = []
+        self.fitness = 0.0
 
         self.params = params
+        # connect upon init
         self.innovation_history = InnovationHistory()
 
     def mutate(self):
@@ -44,6 +45,8 @@ class Genome:
                 else:
                     # TODO : doesn't seem to work as intended
                     parent2_cg = parent2.connection_genes[cg_idx]
+                    if not parent1_cg.enabled:
+                        parent2_cg.disable()
                     offspring.add_conn(parent2_cg.in_node,
                                        parent2_cg.out_node,
                                        weight=parent2_cg.weight,
@@ -168,12 +171,12 @@ class Genome:
         match_count = 0
         total_diff = 0
 
-        if len(genome1) < len(genome2):
+        if len(genome1.connection_genes) < len(genome2.connection_genes):
             genome1, genome2 = genome2, genome1
 
         for cg1 in genome1.connection_genes:
             for cg2 in genome2.connection_genes:
-                if cg1.innovation_numbers == cg2.innovation_number:
+                if cg1.innovation_number == cg2.innovation_number:
                     total_diff = abs(cg1.weight - cg2.weight)
                     match_count += 1
                     break
