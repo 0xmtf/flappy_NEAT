@@ -351,7 +351,7 @@ class Flappy:
                      abs(bird.y - pipes[curr_pipe].bottom),
                      abs(bird.y - base.y)))
 
-                if output[0] > 0.5:
+                if output[0] > 0.2:
                     bird.jump()
 
             for bird in birds:

@@ -9,6 +9,9 @@ class Activator:
             "tanh": self._tanh
         }
 
+    def get_func(self):
+        return self.funcs[self.name]
+
     def compute_func(self, x):
         return self.funcs[self.name](x)
 
