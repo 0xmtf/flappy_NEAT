@@ -44,7 +44,6 @@ class Population:
 
             try:
                 self.population = self.reproduction.breed(self.species)
-                fut =1
             except Exception:
                 if self.config.genome_params.reset_extinct:
                     self.population = self.reproduction.create()
