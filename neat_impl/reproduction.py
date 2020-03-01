@@ -19,7 +19,7 @@ class Reproduction:
         return genomes
 
     def breed(self, species):
-        performing_species = species
+        performing_species = []
         for s in species:
             if not s.staleness > self.stagnation_params.max_stagnation:
                 performing_species.append(s)
@@ -34,10 +34,10 @@ class Reproduction:
         for idx, s in enumerate(performing_species):
             spec_members = s.members
             if species_members_count[idx] == 1:
-                new_society.append(spec_members[idx])
+                new_society.append(spec_members[0])
             elif species_members_count[idx] == 2:
-                parent1 = spec_members[1]
-                parent2 = spec_members[2]
+                parent1 = spec_members[0]
+                parent2 = spec_members[1]
                 if parent1.fitness < parent2.fitness:
                     parent1, parent2 = parent2, parent1
 
@@ -49,8 +49,7 @@ class Reproduction:
                 new_society.append(offspring)
             else:
                 added = 0
-                spec_members.sort(elites,
-                                  key=lambda e: e.fitness,
+                spec_members.sort(key=lambda e: e.fitness,
                                   reverse=True)
                 if self.reproduction_params.elitism > 0:
                     # this must be changed
@@ -65,17 +64,15 @@ class Reproduction:
                 # use some sort of criteria to ensure
                 # there'll be at least 2 parents breeding
                 # otherwise it'll breed a genetically identical offspring
-                cull_count = round(self.reproduction_params.survival_threshold *
-                                   len(spec_members))
-                spec_members = spec_members[:-cull_count]
+                cull_count = max(round(self.reproduction_params.survival_threshold * len(spec_members)), 2)
+
+                spec_members = spec_members[:cull_count]
                 while added < species_members_count[idx]:
-                    parent1 = spec_members[
-                        random.randint(1, len(spec_members))
-                    ]
-                    parent2 = spec_members[
-                        random.randint(1, len(spec_members))
-                    ]
-                    offspring = Genome(self.genome_params.genome_params)
+                    r1 = random.randint(0, len(spec_members) - 1)
+                    r2 = random.randint(0, len(spec_members) - 1)
+                    parent1 = spec_members[r1]
+                    parent2 = spec_members[r2]
+                    offspring = Genome(self.genome_params)
                     offspring.connect()
                     offspring = offspring.crossover(parent1, parent2)
                     offspring.mutate()

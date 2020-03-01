@@ -2,6 +2,7 @@ from neat_impl.reproduction import Reproduction
 from neat_impl.species import Species
 from neat_impl.config import Config
 from statistics import mean
+from copy import deepcopy
 
 fitness_funcs = {
     "max": max,
@@ -43,13 +44,12 @@ class Population:
 
             try:
                 self.population = self.reproduction.breed(self.species)
+                fut =1
             except Exception:
                 if self.config.genome_params.reset_extinct:
                     self.population = self.reproduction.create()
                 else:
                     return
-
-            # do stuff
 
             self.speciate()
             self.generation += 1
@@ -59,13 +59,14 @@ class Population:
         species = []
 
         # assign members to each of the species
-        population = self.population
+        population = deepcopy(self.population)
         for s in self.species:
             for idx, p in enumerate(population):
                 distance = p.compatibility_distance(s.champion, p)
                 if distance < compatibility_threshold:
                     population.pop(idx)
                     s.update(p)
+            species.append(s)
 
         # divide newborn population or unspeciated individuals into species
         for p in population:
@@ -91,21 +92,16 @@ class Population:
         self.species.clear()
         self.species = species
 
-    def kill_stale_species(self):
-        """
-        :Kill species that don't improve
-        :Probably move to separate stagnation class
-        :return:
-        """
-        for idx, spec in enumerate(self.species):
-            if spec.staleness >= self.config.stagnation_params.max_stagnation:
-                self.species.pop(idx)
+
+def ev(gens, b):
+    local_g = []
+    for gen in gens:
+        local_g.append(gen)
+
+    for l in local_g:
+        l.fitness = 15
 
 
 config = Config()
 pop = Population(config)
-
-pop.speciate()
-for i, s in enumerate(pop.species):
-    print("Species: {0} with {1} genomes"
-          .format(i, len(s.members)))
+pop.evaluate(ev, 10)
