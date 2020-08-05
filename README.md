@@ -1,4 +1,4 @@
-# flappy_NEAT
+# flappy NEAT
 
 ## demo
 ![demo gif](img/demo/flappy_animation.gif)
